@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QuickMedi – Medicine inventory</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <h1>QuickMedi</h1>
+    </div>
+    <p class="stock-value" id="stock-value" aria-live="polite"></p>
+    <button class="btn primary" id="btn-add" type="button">Add medicine</button>
+  </header>
+
+  <main>
+    <nav class="shelf" aria-label="Filter by status" id="shelf">
+      <button type="button" class="shelf-item" data-status="" aria-pressed="true">
+        <span class="num" id="n-total">0</span><span class="lbl">All medicines</span>
+      </button>
+      <button type="button" class="shelf-item warn" data-status="low_stock" aria-pressed="false">
+        <span class="num" id="n-low">0</span><span class="lbl">Low stock</span>
+      </button>
+      <button type="button" class="shelf-item warn" data-status="expiring" aria-pressed="false">
+        <span class="num" id="n-expiring">0</span><span class="lbl">Expiring within 30 days</span>
+      </button>
+      <button type="button" class="shelf-item bad" data-status="expired" aria-pressed="false">
+        <span class="num" id="n-expired">0</span><span class="lbl">Expired</span>
+      </button>
+    </nav>
+
+    <section class="toolbar" aria-label="Search and filter">
+      <label class="field grow">
+        <span class="sr">Search medicines</span>
+        <input type="search" id="search" placeholder="Search by name, generic name or batch number" autocomplete="off">
+      </label>
+      <label class="field">
+        <span class="sr">Category</span>
+        <select id="category"><option value="">All categories</option></select>
+      </label>
+    </section>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Medicine</th>
+            <th scope="col">Category</th>
+            <th scope="col">Batch</th>
+            <th scope="col" class="r">In stock</th>
+            <th scope="col">Expiry</th>
+            <th scope="col">Status</th>
+            <th scope="col"><span class="sr">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty" id="empty" hidden>
+        <p id="empty-text">No medicines yet.</p>
+        <button class="btn" id="btn-empty-add" type="button">Add your first medicine</button>
+      </div>
+    </div>
+    <p class="count" id="count" aria-live="polite"></p>
+  </main>
+
+  <!-- Add / edit -->
+  <dialog id="dlg-form">
+    <form method="dialog" id="form" class="dlg-body">
+      <h2 id="form-title">Add medicine</h2>
+      <div class="grid">
+        <label class="field span2">Name
+          <input name="name" required maxlength="150">
+        </label>
+        <label class="field">Generic name
+          <input name="generic_name" maxlength="150">
+        </label>
+        <label class="field">Category
+          <input name="category" required maxlength="80" list="category-list" value="General">
+          <datalist id="category-list"></datalist>
+        </label>
+        <label class="field">Manufacturer
+          <input name="manufacturer" maxlength="150">
+        </label>
+        <label class="field">Batch number
+          <input name="batch_number" maxlength="60">
+        </label>
+        <label class="field">Quantity in stock
+          <input name="quantity" type="number" min="0" step="1" required value="0">
+        </label>
+        <label class="field">Reorder when stock reaches
+          <input name="reorder_level" type="number" min="0" step="1" required value="10">
+        </label>
+        <label class="field">Price per unit (₹)
+          <input name="unit_price" type="number" min="0" step="0.01" required value="0">
+        </label>
+        <label class="field">Expiry date
+          <input name="expiry_date" type="date" required>
+        </label>
+        <label class="field span2">Storage notes
+          <textarea name="storage_notes" rows="2" placeholder="e.g. Keep below 25°C, away from sunlight"></textarea>
+        </label>
+      </div>
+      <p class="form-error" id="form-error" role="alert" hidden></p>
+      <div class="dlg-actions">
+        <button class="btn" type="button" data-close>Cancel</button>
+        <button class="btn primary" type="submit" id="form-submit">Save medicine</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Adjust stock -->
+  <dialog id="dlg-stock">
+    <form method="dialog" id="stock-form" class="dlg-body">
+      <h2>Update stock</h2>
+      <p class="dlg-sub" id="stock-sub"></p>
+      <div class="seg" role="radiogroup" aria-label="Stock action">
+        <label><input type="radio" name="dir" value="add" checked><span>Add stock</span></label>
+        <label><input type="radio" name="dir" value="remove"><span>Remove stock</span></label>
+      </div>
+      <label class="field">Units
+        <input name="amount" type="number" min="1" step="1" required value="1">
+      </label>
+      <label class="field">Reason
+        <input name="reason" maxlength="200" placeholder="e.g. New delivery, dispensed, damaged">
+      </label>
+      <div class="history" id="history"></div>
+      <p class="form-error" id="stock-error" role="alert" hidden></p>
+      <div class="dlg-actions">
+        <button class="btn" type="button" data-close>Cancel</button>
+        <button class="btn primary" type="submit">Update stock</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Delete -->
+  <dialog id="dlg-delete">
+    <form method="dialog" class="dlg-body">
+      <h2>Delete medicine</h2>
+      <p id="delete-text"></p>
+      <div class="dlg-actions">
+        <button class="btn" type="button" data-close>Keep medicine</button>
+        <button class="btn danger" type="submit" id="delete-confirm">Delete medicine</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
